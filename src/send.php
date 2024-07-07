@@ -15,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'send':
             try {
                 $biblio = Biblio::take(1)->skip((int)$input['index'])->first();
-                IndexHelper::run($biblio);
-                echo 'The _' . substr($biblio->title, 0, 50) . '_ has been sent 🛬';
+                $biblio = IndexHelper::run($biblio);
+                echo 'The _' . substr($biblio->title, 0, 50) . '_ has been sent with '. $biblio->itemStatus['sentCount'] .' items 🛬';
             } catch (\Throwable $th) {
                 echo $th->getMessage();
             }

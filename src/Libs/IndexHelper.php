@@ -8,7 +8,6 @@ use Idoalit\S2i\Models\Catalog;
 use Idoalit\S2i\Models\Collection;
 use Idoalit\S2i\Models\Worksheet;
 use Idoalit\SlimsEloquentModels\Biblio;
-use Idoalit\SlimsEloquentModels\Item;
 
 class IndexHelper
 {
@@ -24,7 +23,7 @@ class IndexHelper
 
         $catalogHelper = new CatalogHelper($worksheet, $biblio);
         $catalog = $catalogHelper->updateOrCreate($SLiMS_BIBID, $authors, $topics);
-        self::sendItem($biblio, $catalog);
+        $biblio->itemStatus = self::sendItem($biblio, $catalog);
 
         // 	001	Nomor Kendali
         $catalogHelper->updateOrCreateRuas('001', $catalog->ControlNumber, null, null);
@@ -138,6 +137,8 @@ class IndexHelper
     }
 
     public static function sendItem(Biblio $biblio, Catalog $catalog) {
+        $n = 0;
+        $errors = [];
         foreach ($biblio->items as $item) {
             $criteria = ['NomorBarcode' => $item->item_code];
             $value = [
@@ -155,9 +156,18 @@ class IndexHelper
             
             try {
                 Collection::updateOrCreate($criteria, $value);
+                $n++;
             } catch (\Throwable $th) {
-                //throw $th;
+                $errors[] = [
+                    'itemCode' => $item->item_code,
+                    'message' => $th->getMessage()
+                ];
             }
         }
+
+        return [
+            'sentCount' => $n,
+            'errors' => $errors
+        ];
     }
 }
