@@ -4,8 +4,11 @@ namespace Idoalit\S2i\Libs;
 
 use Idoalit\S2i\Libs\CatalogHelper;
 use Idoalit\S2i\Libs\Helper;
+use Idoalit\S2i\Models\Catalog;
+use Idoalit\S2i\Models\Collection;
 use Idoalit\S2i\Models\Worksheet;
 use Idoalit\SlimsEloquentModels\Biblio;
+use Idoalit\SlimsEloquentModels\Item;
 
 class IndexHelper
 {
@@ -21,6 +24,7 @@ class IndexHelper
 
         $catalogHelper = new CatalogHelper($worksheet, $biblio);
         $catalog = $catalogHelper->updateOrCreate($SLiMS_BIBID, $authors, $topics);
+        self::sendItem($biblio, $catalog);
 
         // 	001	Nomor Kendali
         $catalogHelper->updateOrCreateRuas('001', $catalog->ControlNumber, null, null);
@@ -131,5 +135,29 @@ class IndexHelper
         }
 
         return $biblio;
+    }
+
+    public static function sendItem(Biblio $biblio, Catalog $catalog) {
+        foreach ($biblio->items as $item) {
+            $criteria = ['NomorBarcode' => $item->item_code];
+            $value = [
+                'NoInduk' => $item->inventory_code,
+                'Currency' => $item->price_currency == 'Rupiah' ? 'IDR' : $item->price_currency,
+                'Price' => $item->price,
+                'PriceType' => 'Per eksemplar',
+                'TanggalPengadaan' => $item->order_date,
+                'CallNumber' => $item->call_number ?? $biblio->call_number,
+                'Catalog_id' => $catalog->ID,
+                'Status_id' => in_array($item->item_status_id, [0, '0', null, '']) ? 1 : null,
+                'CreateTerminal' => 'SLiMS',
+                'UpdateTerminal' => 'SLiMS',
+            ];
+            
+            try {
+                Collection::updateOrCreate($criteria, $value);
+            } catch (\Throwable $th) {
+                //throw $th;
+            }
+        }
     }
 }
