@@ -1,7 +1,9 @@
 <?php
 
 use Idoalit\S2i\Libs\IndexHelper;
+use Idoalit\S2i\Libs\MemberHelper;
 use Idoalit\SlimsEloquentModels\Biblio;
+use Idoalit\SlimsEloquentModels\Member;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -12,11 +14,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo Biblio::count();
             break;
 
+        case 'countMember':
+            echo Member::count();
+            break;
+
         case 'send':
             try {
                 $biblio = Biblio::take(1)->skip((int)$input['index'])->first();
                 $biblio = IndexHelper::run($biblio);
-                echo 'The _' . substr($biblio->title, 0, 50) . '_ has been sent with '. $biblio->itemStatus['sentCount'] .' items 🛬';
+                echo 'The _' . substr($biblio->title, 0, 50) . '_ has been sent with ' . $biblio->itemStatus['sentCount'] . ' items 🛬';
+            } catch (\Throwable $th) {
+                echo $th->getMessage();
+            }
+            break;
+
+        case 'sendMember':
+            try {
+                $member = Member::take(1)->skip((int)$input['index'])->first();
+                MemberHelper::run($member);
+                echo $member->member_name . ' [' . $member->member_id . '] has been sent ' . ($member->gender > 0 ? '👨‍🦱' : '👩‍🦱');
             } catch (\Throwable $th) {
                 echo $th->getMessage();
             }
@@ -56,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const baseUrl = `<?= $_SERVER['PHP_SELF'] . '?mod=' . $_GET['mod'] . '&id=' . $_GET['id'] ?>`
     const progres = document.querySelector('.progress-bar')
     let biblioCount = 0;
+    let memberCount = 0;
 
     function addLog(message) {
         const logDiv = document.getElementById('log');
@@ -67,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     async function startSend() {
         for (let index = 0; index < biblioCount; index++) {
-            addLog(`Send index ${index} ✈️`)
+            addLog(`Send ${index+1} of ${biblioCount} ✈️`)
             const res = await fetch(baseUrl, {
                 method: 'post',
                 headers: {
@@ -81,6 +98,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const message = await res.text();
             addLog(message)
             progres.style.width = `${((index+1) / biblioCount) * 100}%`
+        }
+
+        // send member
+        // get member count
+        await getMemberCount();
+
+        // start send member
+        await startSendMember();
+
+        addLog('Done! ✅')
+    }
+
+    async function getMemberCount() {
+        const res = await fetch(baseUrl, {
+            method: 'post',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'countMember'
+            })
+        });
+
+        const result = await res.text();
+        memberCount = Number(result);
+
+        addLog(`Your member: ${result} data`)
+    }
+
+    async function startSendMember() {
+        for (let index = 0; index < memberCount; index++) {
+            addLog(`Send member ${index+1} of ${memberCount} ✈️`)
+            const res = await fetch(baseUrl, {
+                method: 'post',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'sendMember',
+                    index
+                })
+            })
+
+            const message = await res.text();
+            addLog(message)
+            progres.style.width = `${((index+1) / memberCount) * 100}%`
         }
     }
 
